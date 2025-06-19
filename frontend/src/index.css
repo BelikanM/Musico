@@ -1,3 +1,90 @@
+body {
+  margin: 0;
+  background: #000;
+  color: white;
+  font-family: Arial, sans-serif;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #111;
+  padding: 1rem 2rem;
+  border-bottom: 1px solid #333;
+}
+
+.navbar h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: crimson;
+}
+
+.main-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.sidebar,
+.upload-box,
+.subscription {
+  padding: 20px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sidebar,
+.subscription {
+  background: #1a1a1a;
+}
+
+.upload-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #222;
+  border-left: 1px solid #333;
+  border-right: 1px solid #333;
+}
+
+.upload-box form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.upload-box input,
+.upload-box button {
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+}
+
+.upload-box input {
+  background: #333;
+  color: white;
+}
+
+.upload-box button {
+  background: crimson;
+  color: white;
+  cursor: pointer;
+}
+
+.upload-box button:hover {
+  background: darkred;
+}
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
