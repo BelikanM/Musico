@@ -35,20 +35,24 @@ mongoose
   .then(() => console.log("✅ Connexion MongoDB réussie"))
   .catch((err) => console.error("❌ MongoDB error:", err));
 
+// Modèles
+
 // Modèle Utilisateur
 const UserSchema = new mongoose.Schema({
   uuid: { type: String, required: true, unique: true },
   email: { type: String, unique: true },
   name: String,
   password: String,
+  followers: [{ type: String }], // Liste des UUID des followers
+  following: [{ type: String }], // Liste des UUID des personnes suivies
 });
 const User = mongoose.model("User", UserSchema);
 
-// Modèle Publication (musique + contenu riche)
+// Modèle Publication
 const PublicationSchema = new mongoose.Schema({
   userUuid: { type: String, required: true },
   title: { type: String, required: true },
-  content: { type: String, default: "" }, // HTML content from ReactQuill
+  content: { type: String, default: "" },
   audioPath: String,
   imagePath: String,
   videoPath: String,
@@ -62,7 +66,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Middleware pour vérifier JWT et attacher user au req
+// Middleware pour vérifier JWT
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: "Token manquant" });
@@ -94,7 +98,14 @@ app.post("/auth/register", async (req, res) => {
     const hashed = await bcrypt.hash(password, 10);
     const uuid = new mongoose.Types.ObjectId().toString();
 
-    const newUser = await User.create({ uuid, email, name, password: hashed });
+    const newUser = await User.create({
+      uuid,
+      email,
+      name,
+      password: hashed,
+      followers: [],
+      following: [],
+    });
     const token = jwt.sign({ uuid }, process.env.JWT_SECRET);
     res.json({ token, user: newUser });
   } catch (err) {
@@ -134,11 +145,63 @@ app.get("/auth/me", verifyToken, async (req, res) => {
   }
 });
 
-// ROUTES PUBLICATION / UPLOADS
+// ROUTES UTILISATEURS
 
-// Upload publication avec fichiers (audio obligatoire, image obligatoire, vidéo optionnelle)
+// Liste des utilisateurs
+app.get("/users", verifyToken, async (req, res) => {
+  try {
+    const users = await User.find().select("-password");
+    res.json(users);
+  } catch (err) {
+    console.error("Erreur récupération utilisateurs:", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Suivre/unfollow un utilisateur
+app.post("/users/:userId/follow", verifyToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const currentUserUuid = req.userUuid;
+
+    // Vérifier si l'utilisateur est déjà suivi
+    const currentUser = await User.findOne({ uuid: currentUserUuid });
+    const isFollowing = currentUser.following.includes(userId);
+
+    if (isFollowing) {
+      // Unfollow
+      await User.updateOne(
+        { uuid: currentUserUuid },
+        { $pull: { following: userId } }
+      );
+      await User.updateOne(
+        { uuid: userId },
+        { $pull: { followers: currentUserUuid } }
+      );
+      res.json({ message: "Unfollow réussi", action: "unfollow" });
+    } else {
+      // Follow
+      await User.updateOne(
+        { uuid: currentUserUuid },
+        { $addToSet: { following: userId } }
+      );
+      await User.updateOne(
+        { uuid: userId },
+        { $addToSet: { followers: currentUserUuid } }
+      );
+      res.json({ message: "Follow réussi", action: "follow" });
+    }
+  } catch (err) {
+    console.error("Erreur follow/unfollow:", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// ROUTES PUBLICATION
+
+// Créer une publication
 app.post(
-  "/upload",
+  "/publications",
   verifyToken,
   upload.fields([
     { name: "audio", maxCount: 1 },
@@ -167,13 +230,13 @@ app.post(
 
       res.json({ message: "Publication créée avec succès", publication });
     } catch (err) {
-      console.error("Erreur upload:", err);
+      console.error("Erreur création publication:", err);
       res.status(500).json({ error: "Erreur serveur" });
     }
   }
 );
 
-// Récupérer toutes les publications avec infos utilisateur
+// Récupérer toutes les publications
 app.get("/publications", async (req, res) => {
   try {
     const publications = await Publication.find().sort({ createdAt: -1 });
@@ -190,6 +253,7 @@ app.get("/publications", async (req, res) => {
         imageUrl: pub.imagePath ? `${req.protocol}://${req.get("host")}/${pub.imagePath}` : null,
         videoUrl: pub.videoPath ? `${req.protocol}://${req.get("host")}/${pub.videoPath}` : null,
         username: user ? user.name : "Inconnu",
+        userUuid: pub.userUuid,
         createdAt: pub.createdAt,
       };
     });
@@ -201,7 +265,7 @@ app.get("/publications", async (req, res) => {
   }
 });
 
-// Supprimer une publication par id (avec suppression des fichiers)
+// Supprimer une publication
 app.delete("/publications/:id", verifyToken, async (req, res) => {
   try {
     const pub = await Publication.findById(req.params.id);
@@ -210,7 +274,7 @@ app.delete("/publications/:id", verifyToken, async (req, res) => {
     if (pub.userUuid !== req.userUuid)
       return res.status(403).json({ error: "Interdit: pas propriétaire" });
 
-    // Supprimer fichiers s'ils existent
+    // Supprimer fichiers
     if (pub.audioPath && fs.existsSync(pub.audioPath)) fs.unlinkSync(pub.audioPath);
     if (pub.imagePath && fs.existsSync(pub.imagePath)) fs.unlinkSync(pub.imagePath);
     if (pub.videoPath && fs.existsSync(pub.videoPath)) fs.unlinkSync(pub.videoPath);
@@ -223,7 +287,7 @@ app.delete("/publications/:id", verifyToken, async (req, res) => {
   }
 });
 
-// Servir les fichiers statiques (audio, image, vidéo)
+// Servir les fichiers statiques
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Démarrer serveur
@@ -231,3 +295,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🎧 Serveur en ligne sur http://localhost:${PORT}`);
 });
+
