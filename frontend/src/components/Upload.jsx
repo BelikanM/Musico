@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import "./Upload.css"; // Créez ce fichier CSS pour le style
 
 const Upload = () => {
   const [token, setToken] = useState(localStorage.getItem("token") || "");
@@ -7,11 +8,62 @@ const Upload = () => {
   const [audio, setAudio] = useState(null);
   const [image, setImage] = useState(null);
   const [video, setVideo] = useState(null);
+  const [editingId, setEditingId] = useState(null);
 
+  const [publications, setPublications] = useState([]);
+  const [users, setUsers] = useState([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [isLoginMode, setIsLoginMode] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [activeTab, setActiveTab] = useState("publications"); // 'publications' ou 'users'
+
+  useEffect(() => {
+    fetchPublications();
+    if (token) {
+      fetchCurrentUser();
+      fetchUsers();
+    }
+  }, [token]);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/auth/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      setCurrentUser(data);
+    } catch (err) {
+      console.error("Erreur récupération utilisateur:", err);
+    }
+  };
+
+  const fetchPublications = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/publications");
+      const data = await res.json();
+      setPublications(data);
+    } catch (err) {
+      console.error("Erreur loading publications:", err);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/users", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      setUsers(data);
+    } catch (err) {
+      console.error("Erreur loading users:", err);
+    }
+  };
 
   const handleAuth = async () => {
     const url = isLoginMode
@@ -45,13 +97,18 @@ const Upload = () => {
     const formData = new FormData();
     formData.append("title", title);
     formData.append("content", content);
-    formData.append("audio", audio);
-    formData.append("image", image);
+    if (audio) formData.append("audio", audio);
+    if (image) formData.append("image", image);
     if (video) formData.append("video", video);
 
     try {
-      const res = await fetch("http://localhost:5000/upload", {
-        method: "POST",
+      const url = editingId
+        ? `http://localhost:5000/publications/${editingId}`
+        : "http://localhost:5000/publications";
+      const method = editingId ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -59,20 +116,71 @@ const Upload = () => {
       });
 
       const data = await res.json();
-      alert(data.message || "✅ Publication réussie");
+      alert(data.message || "✅ Opération réussie");
+      
       setTitle("");
       setContent("");
       setAudio(null);
       setImage(null);
       setVideo(null);
+      setEditingId(null);
+      fetchPublications();
     } catch (err) {
       console.error("Erreur upload:", err);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Supprimer cette publication ?")) return;
+
+    try {
+      const res = await fetch(`http://localhost:5000/publications/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      alert(data.message);
+      fetchPublications();
+    } catch (err) {
+      console.error("Erreur suppression:", err);
+    }
+  };
+
+  const handleEdit = (pub) => {
+    setTitle(pub.title);
+    setContent(pub.content);
+    setEditingId(pub.id);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleFollow = async (userId) => {
+    try {
+      const res = await fetch(
+        `http://localhost:5000/users/${userId}/follow`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      const data = await res.json();
+      if (data.message) {
+        fetchUsers();
+        fetchCurrentUser();
+      }
+    } catch (err) {
+      console.error("Erreur follow/unfollow:", err);
     }
   };
 
   const logout = () => {
     localStorage.removeItem("token");
     setToken("");
+    setCurrentUser(null);
   };
 
   return (
@@ -116,56 +224,172 @@ const Upload = () => {
       ) : (
         <>
           <div className="header">
-            <h2>🎙️ Nouvelle publication</h2>
-            <button onClick={logout} className="btn small">🔓 Déconnexion</button>
+            <h2>🎙️ {editingId ? "Modifier publication" : "Nouvelle publication"}</h2>
+            <div className="user-info">
+              <span>👤 {currentUser?.name}</span>
+              <button onClick={logout} className="btn small">
+                🔓 Déconnexion
+              </button>
+            </div>
           </div>
-          <form onSubmit={handleSubmit} className="form">
-            <input
-              type="text"
-              placeholder="Titre"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="input"
-              required
-            />
 
-            <textarea
-              placeholder="Contenu HTML"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="textarea"
-              rows={6}
-              required
-            />
+          <div className="tabs">
+            <button
+              className={`tab ${activeTab === "publications" ? "active" : ""}`}
+              onClick={() => setActiveTab("publications")}
+            >
+              Publications
+            </button>
+            <button
+              className={`tab ${activeTab === "users" ? "active" : ""}`}
+              onClick={() => setActiveTab("users")}
+            >
+              Utilisateurs
+            </button>
+          </div>
 
-            <label>🎧 Audio :</label>
-            <input
-              type="file"
-              accept="audio/*"
-              onChange={(e) => setAudio(e.target.files[0])}
-              className="input-file"
-              required
-            />
+          {activeTab === "publications" && (
+            <>
+              <form onSubmit={handleSubmit} className="form">
+                <input
+                  type="text"
+                  placeholder="Titre"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="input"
+                  required
+                />
+                <textarea
+                  placeholder="Contenu HTML"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  className="textarea"
+                  rows={6}
+                  required
+                />
+                <div className="file-inputs">
+                  <label>
+                    Audio (obligatoire)
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={(e) => setAudio(e.target.files[0])}
+                      className="input-file"
+                      required={!editingId}
+                    />
+                  </label>
+                  <label>
+                    Image (obligatoire)
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setImage(e.target.files[0])}
+                      className="input-file"
+                      required={!editingId}
+                    />
+                  </label>
+                  <label>
+                    Vidéo (optionnelle)
+                    <input
+                      type="file"
+                      accept="video/*"
+                      onChange={(e) => setVideo(e.target.files[0])}
+                      className="input-file"
+                    />
+                  </label>
+                </div>
+                <button type="submit" className="btn">
+                  {editingId ? "💾 Enregistrer" : "✅ Publier"}
+                </button>
+                {editingId && (
+                  <button
+                    type="button"
+                    className="btn cancel"
+                    onClick={() => {
+                      setEditingId(null);
+                      setTitle("");
+                      setContent("");
+                      setAudio(null);
+                      setImage(null);
+                      setVideo(null);
+                    }}
+                  >
+                    Annuler
+                  </button>
+                )}
+              </form>
 
-            <label>🖼️ Image :</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setImage(e.target.files[0])}
-              className="input-file"
-              required
-            />
+              <div className="publications">
+                {publications.map((pub) => (
+                  <div className="card" key={pub.id}>
+                    <img src={pub.imageUrl} alt={pub.title} className="cover" />
+                    <div className="card-body">
+                      <h3>{pub.title}</h3>
+                      <div dangerouslySetInnerHTML={{ __html: pub.content }} />
+                      {pub.audioUrl && (
+                        <audio controls src={pub.audioUrl} className="audio-player" />
+                      )}
+                      {pub.videoUrl && (
+                        <video controls src={pub.videoUrl} className="video-player" />
+                      )}
+                      <div className="card-footer">
+                        <small>
+                          👤 {pub.username} | 🕒{" "}
+                          {new Date(pub.createdAt).toLocaleString()}
+                        </small>
+                        {pub.userUuid === currentUser?.uuid && (
+                          <div className="actions">
+                            <button
+                              onClick={() => handleEdit(pub)}
+                              className="btn small"
+                            >
+                              ✏️ Modifier
+                            </button>
+                            <button
+                              onClick={() => handleDelete(pub.id)}
+                              className="btn small danger"
+                            >
+                              🗑️ Supprimer
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
-            <label>🎥 Vidéo (optionnelle) :</label>
-            <input
-              type="file"
-              accept="video/*"
-              onChange={(e) => setVideo(e.target.files[0])}
-              className="input-file"
-            />
-
-            <button type="submit" className="btn">✅ Publier</button>
-          </form>
+          {activeTab === "users" && (
+            <div className="users-list">
+              <h3>Utilisateurs inscrits</h3>
+              {users.map((user) => (
+                <div key={user.uuid} className="user-card">
+                  <div className="user-info">
+                    <h4>{user.name}</h4>
+                    <p>{user.email}</p>
+                    <small>
+                      {user.followers?.length || 0} followers |{" "}
+                      {user.following?.length || 0} suivis
+                    </small>
+                  </div>
+                  <button
+                    onClick={() => handleFollow(user.uuid)}
+                    className={`btn small ${
+                      currentUser?.following?.includes(user.uuid)
+                        ? "following"
+                        : ""
+                    }`}
+                  >
+                    {currentUser?.following?.includes(user.uuid)
+                      ? "✓ Suivi"
+                      : "+ Suivre"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>
@@ -173,3 +397,4 @@ const Upload = () => {
 };
 
 export default Upload;
+
