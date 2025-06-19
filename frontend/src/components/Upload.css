@@ -1,0 +1,56 @@
+.container {
+  max-width: 100%;
+  padding: 16px;
+  margin: auto;
+  font-family: sans-serif;
+}
+
+.auth-box, .form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: #f7f7f7;
+  padding: 16px;
+  border-radius: 12px;
+}
+
+.input, .textarea {
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  width: 100%;
+}
+
+.input-file {
+  padding: 6px;
+}
+
+.btn {
+  padding: 12px;
+  background-color: #2e8b57;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.btn.small {
+  padding: 6px 12px;
+  font-size: 14px;
+  background-color: #e74c3c;
+}
+
+.toggle span {
+  color: blue;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
