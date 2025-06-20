@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import "./Upload.css"; // Créez ce fichier CSS pour le style
+import "./Upload.css";
 
 const Upload = () => {
   const [token, setToken] = useState(localStorage.getItem("token") || "");
@@ -17,7 +17,7 @@ const Upload = () => {
   const [name, setName] = useState("");
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
-  const [activeTab, setActiveTab] = useState("publications"); // 'publications' ou 'users'
+  const [activeTab, setActiveTab] = useState("publications");
 
   useEffect(() => {
     fetchPublications();
@@ -30,9 +30,7 @@ const Upload = () => {
   const fetchCurrentUser = async () => {
     try {
       const res = await fetch("http://localhost:5000/auth/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       setCurrentUser(data);
@@ -54,9 +52,7 @@ const Upload = () => {
   const fetchUsers = async () => {
     try {
       const res = await fetch("http://localhost:5000/users", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       setUsers(data);
@@ -69,7 +65,6 @@ const Upload = () => {
     const url = isLoginMode
       ? "http://localhost:5000/auth/login"
       : "http://localhost:5000/auth/register";
-
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -77,7 +72,6 @@ const Upload = () => {
         body: JSON.stringify({ email, password, name }),
       });
       const data = await res.json();
-
       if (data.token) {
         localStorage.setItem("token", data.token);
         setToken(data.token);
@@ -109,15 +103,13 @@ const Upload = () => {
 
       const res = await fetch(url, {
         method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
 
       const data = await res.json();
       alert(data.message || "✅ Opération réussie");
-      
+
       setTitle("");
       setContent("");
       setAudio(null);
@@ -132,13 +124,10 @@ const Upload = () => {
 
   const handleDelete = async (id) => {
     if (!window.confirm("Supprimer cette publication ?")) return;
-
     try {
       const res = await fetch(`http://localhost:5000/publications/${id}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       alert(data.message);
@@ -157,16 +146,13 @@ const Upload = () => {
 
   const handleFollow = async (userId) => {
     try {
-      const res = await fetch(
-        `http://localhost:5000/users/${userId}/follow`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const res = await fetch(`http://localhost:5000/users/${userId}/follow`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
       const data = await res.json();
       if (data.message) {
         fetchUsers();
@@ -227,132 +213,57 @@ const Upload = () => {
             <h2>🎙️ {editingId ? "Modifier publication" : "Nouvelle publication"}</h2>
             <div className="user-info">
               <span>👤 {currentUser?.name}</span>
-              <button onClick={logout} className="btn small">
-                🔓 Déconnexion
-              </button>
+              <button onClick={logout} className="btn small">🔓 Déconnexion</button>
             </div>
           </div>
 
           <div className="tabs">
-            <button
-              className={`tab ${activeTab === "publications" ? "active" : ""}`}
-              onClick={() => setActiveTab("publications")}
-            >
-              Publications
-            </button>
-            <button
-              className={`tab ${activeTab === "users" ? "active" : ""}`}
-              onClick={() => setActiveTab("users")}
-            >
-              Utilisateurs
-            </button>
+            <button className={`tab ${activeTab === "publications" ? "active" : ""}`} onClick={() => setActiveTab("publications")}>Publications</button>
+            <button className={`tab ${activeTab === "users" ? "active" : ""}`} onClick={() => setActiveTab("users")}>Utilisateurs</button>
           </div>
 
           {activeTab === "publications" && (
             <>
               <form onSubmit={handleSubmit} className="form">
-                <input
-                  type="text"
-                  placeholder="Titre"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="input"
-                  required
-                />
-                <textarea
-                  placeholder="Contenu HTML"
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  className="textarea"
-                  rows={6}
-                  required
-                />
+                <input type="text" placeholder="Titre" value={title} onChange={(e) => setTitle(e.target.value)} className="input" required />
+                <textarea placeholder="Contenu HTML" value={content} onChange={(e) => setContent(e.target.value)} className="textarea" rows={6} required />
                 <div className="file-inputs">
                   <label>
                     Audio (obligatoire)
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      onChange={(e) => setAudio(e.target.files[0])}
-                      className="input-file"
-                      required={!editingId}
-                    />
+                    <input type="file" accept="audio/*" onChange={(e) => setAudio(e.target.files[0])} className="input-file" required={!editingId} />
                   </label>
                   <label>
                     Image (obligatoire)
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setImage(e.target.files[0])}
-                      className="input-file"
-                      required={!editingId}
-                    />
+                    <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files[0])} className="input-file" required={!editingId} />
                   </label>
                   <label>
                     Vidéo (optionnelle)
-                    <input
-                      type="file"
-                      accept="video/*"
-                      onChange={(e) => setVideo(e.target.files[0])}
-                      className="input-file"
-                    />
+                    <input type="file" accept="video/*" onChange={(e) => setVideo(e.target.files[0])} className="input-file" />
                   </label>
                 </div>
-                <button type="submit" className="btn">
-                  {editingId ? "💾 Enregistrer" : "✅ Publier"}
-                </button>
-                {editingId && (
-                  <button
-                    type="button"
-                    className="btn cancel"
-                    onClick={() => {
-                      setEditingId(null);
-                      setTitle("");
-                      setContent("");
-                      setAudio(null);
-                      setImage(null);
-                      setVideo(null);
-                    }}
-                  >
-                    Annuler
-                  </button>
-                )}
+                <button type="submit" className="btn">{editingId ? "💾 Enregistrer" : "✅ Publier"}</button>
+                {editingId && <button type="button" className="btn cancel" onClick={() => { setEditingId(null); setTitle(""); setContent(""); setAudio(null); setImage(null); setVideo(null); }}>Annuler</button>}
               </form>
 
               <div className="publications">
                 {publications.map((pub) => (
-                  <div className="card" key={pub.id}>
-                    <img src={pub.imageUrl} alt={pub.title} className="cover" />
-                    <div className="card-body">
-                      <h3>{pub.title}</h3>
-                      <div dangerouslySetInnerHTML={{ __html: pub.content }} />
-                      {pub.audioUrl && (
-                        <audio controls src={pub.audioUrl} className="audio-player" />
-                      )}
-                      {pub.videoUrl && (
-                        <video controls src={pub.videoUrl} className="video-player" />
-                      )}
-                      <div className="card-footer">
-                        <small>
-                          👤 {pub.username} | 🕒{" "}
-                          {new Date(pub.createdAt).toLocaleString()}
-                        </small>
-                        {pub.userUuid === currentUser?.uuid && (
-                          <div className="actions">
-                            <button
-                              onClick={() => handleEdit(pub)}
-                              className="btn small"
-                            >
-                              ✏️ Modifier
-                            </button>
-                            <button
-                              onClick={() => handleDelete(pub.id)}
-                              className="btn small danger"
-                            >
-                              🗑️ Supprimer
-                            </button>
-                          </div>
-                        )}
+                  <div className="music-card" key={pub.id}>
+                    <div className="music-cover" style={{ backgroundImage: `url(${pub.imageUrl})` }}>
+                      <div className="overlay">
+                        <h3 className="music-title">{pub.title}</h3>
+                        <p className="music-author">👤 {pub.username}</p>
+                        <div dangerouslySetInnerHTML={{ __html: pub.content }} />
+                        {pub.audioUrl && <audio controls src={pub.audioUrl} className="custom-audio" />}
+                        {pub.videoUrl && <video controls src={pub.videoUrl} className="video-player" />}
+                        <div className="meta-info">
+                          <small>🕒 {new Date(pub.createdAt).toLocaleString()}</small>
+                          {pub.userUuid === currentUser?.uuid && (
+                            <div className="actions">
+                              <button onClick={() => handleEdit(pub)} className="btn small">✏️ Modifier</button>
+                              <button onClick={() => handleDelete(pub.id)} className="btn small danger">🗑️ Supprimer</button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -369,22 +280,10 @@ const Upload = () => {
                   <div className="user-info">
                     <h4>{user.name}</h4>
                     <p>{user.email}</p>
-                    <small>
-                      {user.followers?.length || 0} followers |{" "}
-                      {user.following?.length || 0} suivis
-                    </small>
+                    <small>{user.followers?.length || 0} followers | {user.following?.length || 0} suivis</small>
                   </div>
-                  <button
-                    onClick={() => handleFollow(user.uuid)}
-                    className={`btn small ${
-                      currentUser?.following?.includes(user.uuid)
-                        ? "following"
-                        : ""
-                    }`}
-                  >
-                    {currentUser?.following?.includes(user.uuid)
-                      ? "✓ Suivi"
-                      : "+ Suivre"}
+                  <button onClick={() => handleFollow(user.uuid)} className={`btn small ${currentUser?.following?.includes(user.uuid) ? "following" : ""}`}>
+                    {currentUser?.following?.includes(user.uuid) ? "✓ Suivi" : "+ Suivre"}
                   </button>
                 </div>
               ))}
@@ -397,4 +296,3 @@ const Upload = () => {
 };
 
 export default Upload;
-
