@@ -36,16 +36,19 @@ mongoose
   .catch((err) => console.error("❌ MongoDB error:", err));
 
 // Modèles
+
+// Modèle Utilisateur
 const UserSchema = new mongoose.Schema({
   uuid: { type: String, required: true, unique: true },
   email: { type: String, unique: true },
   name: String,
   password: String,
-  followers: [{ type: String }],
-  following: [{ type: String }],
+  followers: [{ type: String }], // Liste des UUID des followers
+  following: [{ type: String }], // Liste des UUID des personnes suivies
 });
 const User = mongoose.model("User", UserSchema);
 
+// Modèle Publication
 const PublicationSchema = new mongoose.Schema({
   userUuid: { type: String, required: true },
   title: { type: String, required: true },
@@ -54,23 +57,9 @@ const PublicationSchema = new mongoose.Schema({
   imagePath: String,
   videoPath: String,
   createdAt: { type: Date, default: Date.now },
-  likes: [{ type: String }],
-  playCount: { type: Number, default: 0 },
-  authorPlayCount: { type: Number, default: 0 },
-  playHistory: [{
-    userUuid: String,
-    timestamp: Date,
-    weight: Number,
-  }],
+  likes: [{ type: String }], // Liste des UUID des utilisateurs ayant aimé
 });
 const Publication = mongoose.model("Publication", PublicationSchema);
-
-const PlaybackHistorySchema = new mongoose.Schema({
-  userUuid: { type: String, required: true },
-  pubId: { type: String, required: true },
-  lastPosition: { type: Number, default: 0 },
-});
-const PlaybackHistory = mongoose.model("PlaybackHistory", PlaybackHistorySchema);
 
 // Middleware logger
 app.use((req, res, next) => {
@@ -95,6 +84,8 @@ const verifyToken = (req, res, next) => {
 };
 
 // ROUTES AUTHENTIFICATION
+
+// Inscription
 app.post("/auth/register", async (req, res) => {
   try {
     const { email, password, name } = req.body;
@@ -116,7 +107,7 @@ app.post("/auth/register", async (req, res) => {
       followers: [],
       following: [],
     });
-    const token = jwt.sign({ uuid: newUser.uuid }, process.env.JWT_SECRET);
+    const token = jwt.sign({ uuid }, process.env.JWT_SECRET);
     res.json({ token, user: newUser });
   } catch (err) {
     console.error("Erreur inscription:", err);
@@ -124,6 +115,7 @@ app.post("/auth/register", async (req, res) => {
   }
 });
 
+// Connexion
 app.post("/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -143,6 +135,7 @@ app.post("/auth/login", async (req, res) => {
   }
 });
 
+// Vérification token + infos user
 app.get("/auth/me", verifyToken, async (req, res) => {
   try {
     const user = await User.findOne({ uuid: req.userUuid }).select("-password");
@@ -154,25 +147,30 @@ app.get("/auth/me", verifyToken, async (req, res) => {
 });
 
 // ROUTES UTILISATEURS
+
+// Liste des utilisateurs
 app.get("/users", verifyToken, async (req, res) => {
   try {
     const users = await User.find().select("-password");
     res.json(users);
   } catch (err) {
     console.error("Erreur récupération utilisateurs:", err);
-    res.status(500).json({ error: "users" });
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
+// Suivre/unfollow un utilisateur
 app.post("/users/:userId/follow", verifyToken, async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUserUuid = req.userUuid;
 
+    // Vérifier si l'utilisateur est déjà suivi
     const currentUser = await User.findOne({ uuid: currentUserUuid });
     const isFollowing = currentUser.following.includes(userId);
 
     if (isFollowing) {
+      // Unfollow
       await User.updateOne(
         { uuid: currentUserUuid },
         { $pull: { following: userId } }
@@ -181,8 +179,9 @@ app.post("/users/:userId/follow", verifyToken, async (req, res) => {
         { uuid: userId },
         { $pull: { followers: currentUserUuid } }
       );
-      res.json({ message: "Unfollow réussi", action: "follows" });
+      res.json({ message: "Unfollow réussi", action: "unfollow" });
     } else {
+      // Follow
       await User.updateOne(
         { uuid: currentUserUuid },
         { $addToSet: { following: userId } }
@@ -191,7 +190,7 @@ app.post("/users/:userId/follow", verifyToken, async (req, res) => {
         { uuid: userId },
         { $addToSet: { followers: currentUserUuid } }
       );
-      res.json({ message: "Follow réussi", action: "follows" });
+      res.json({ message: "Follow réussi", action: "follow" });
     }
   } catch (err) {
     console.error("Erreur follow/unfollow:", err);
@@ -200,6 +199,8 @@ app.post("/users/:userId/follow", verifyToken, async (req, res) => {
 });
 
 // ROUTES PUBLICATION
+
+// Créer une publication
 app.post(
   "/publications",
   verifyToken,
@@ -213,11 +214,11 @@ app.post(
       const { title, content } = req.body;
       if (!title) return res.status(400).json({ error: "Titre requis" });
       if (!req.files["audio"] || !req.files["image"])
-        return res.status(400).json({ error: "erreur" });
+        return res.status(400).json({ error: "Audio et image obligatoires" });
 
       const audioPath = req.files["audio"][0].path;
       const imagePath = req.files["image"][0].path;
-      const videoPath = req.files?.["video"]?.[0]?.path || "";
+      const videoPath = req.files["video"]?.[0]?.path || "";
 
       const publication = await Publication.create({
         userUuid: req.userUuid,
@@ -226,13 +227,10 @@ app.post(
         audioPath,
         imagePath,
         videoPath,
-        likes: [],
-        playCount: 0,
-        authorPlayCount: 0,
-        playHistory: [],
+        likes: [], // Initialiser les likes comme un tableau vide
       });
 
-      res.json({ publication });
+      res.json({ message: "Publication créée avec succès", publication });
     } catch (err) {
       console.error("Erreur création publication:", err);
       res.status(500).json({ error: "Erreur serveur" });
@@ -240,12 +238,14 @@ app.post(
   }
 );
 
+// Récupérer toutes les publications
 app.get("/publications", async (req, res) => {
   try {
     const publications = await Publication.find().sort({ createdAt: -1 });
     const userUuids = publications.map((p) => p.userUuid);
     const users = await User.find({ uuid: { $in: userUuids } });
 
+    // Récupérer l'utilisateur actuel si un token est fourni
     let currentUserUuid = null;
     const authHeader = req.headers.authorization;
     if (authHeader) {
@@ -276,10 +276,8 @@ app.get("/publications", async (req, res) => {
         username: user ? user.name : "Inconnu",
         userUuid: pub.userUuid,
         createdAt: pub.createdAt,
-        likes: pub.likes.length,
-        playCount: pub.playCount || 0,
-        authorPlayCount: pub.authorPlayCount || 0,
-        likedByUser: currentUserUuid ? pub.likes.includes(currentUserUuid) : false,
+        likes: pub.likes.length, // Nombre total de likes
+        likedByUser: currentUserUuid ? pub.likes.includes(currentUserUuid) : false, // Vérifie si l'utilisateur actuel a aimé
       };
     });
 
@@ -290,6 +288,7 @@ app.get("/publications", async (req, res) => {
   }
 });
 
+// Aimer ou retirer un like d'une publication
 app.post("/publications/:id/like", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -302,12 +301,14 @@ app.post("/publications/:id/like", verifyToken, async (req, res) => {
     const hasLiked = publication.likes.includes(currentUserUuid);
 
     if (hasLiked) {
+      // Retirer le like
       await Publication.updateOne(
         { _id: id },
         { $pull: { likes: currentUserUuid } }
       );
       res.json({ message: "Like retiré", action: "unlike" });
     } else {
+      // Ajouter un like
       await Publication.updateOne(
         { _id: id },
         { $addToSet: { likes: currentUserUuid } }
@@ -320,78 +321,7 @@ app.post("/publications/:id/like", verifyToken, async (req, res) => {
   }
 });
 
-app.post("/publications/:id/play", verifyToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { userUuid } = req;
-    const { isManual, weight = 1 } = req.body;
-
-    const publication = await Publication.findById(id);
-    if (!publication)
-      return res.status(404).json({ error: "Publication non trouvée" });
-
-    // Vérifier doublon
-    const recentPlay = publication.playHistory.find(
-      (play) => play.userUuid === userUuid && (Date.now() - new Date(play.timestamp)) / (1000 * 60 * 60) < 24
-    );
-    if (recentPlay)
-      return res.json({ message: "Lecture ignorée (doublon)" });
-
-    // Ajouter à l'historique
-    const playEntry = {
-      userUuid,
-      timestamp: new Date(),
-      weight,
-    };
-
-    // Incrémenter le compteur
-    const updateField = publication.userUuid === userUuid ? "authorPlayCount" : "playCount";
-    await Publication.updateOne(
-      { _id: id },
-      {
-        $inc: { [updateField]: weight },
-        $push: { playHistory: playEntry },
-      }
-    );
-
-    res.json({ message: "Lecture enregistrée" });
-  } catch (err) {
-    console.error("Erreur enregistrement lecture:", err);
-    res.status(500).json({ error: "Erreur serveur" });
-  }
-});
-
-app.post("/playback/:pubId", verifyToken, async (req, res) => {
-  try {
-    const { pubId } = req.params;
-    const { lastPosition } = req.body;
-    const { userUuid } = req;
-
-    await PlaybackHistory.updateOne(
-      { userUuid, pubId },
-      { $set: { lastPosition } },
-      { upsert: true }
-    );
-    res.json({ message: "Historique de lecture mis à jour" });
-  } catch (err) {
-    console.error("Erreur mise à jour historique:", err);
-    res.status(500).json({ error: "Erreur serveur" });
-  }
-});
-
-app.get("/playback/:pubId", verifyToken, async (req, res) => {
-  try {
-    const { pubId } = req.params;
-    const { userUuid } = req;
-
-    const history = await PlaybackHistory.findOne({ userUuid, pubId });
-    res.json({ lastPosition: history ? history.lastPosition : 0 });
-  } catch (err) {
-    console.error("Erreur récupération historique:", err);
-    res.status(500).json({ error: "Erreur serveur" });
-  }
-});
-
+// Supprimer une publication
 app.delete("/publications/:id", verifyToken, async (req, res) => {
   try {
     const pub = await Publication.findById(req.params.id);
@@ -400,23 +330,26 @@ app.delete("/publications/:id", verifyToken, async (req, res) => {
     if (pub.userUuid !== req.userUuid)
       return res.status(403).json({ error: "Interdit: pas propriétaire" });
 
+    // Supprimer fichiers
     if (pub.audioPath && fs.existsSync(pub.audioPath))
       fs.unlinkSync(pub.audioPath);
     if (pub.imagePath && fs.existsSync(pub.imagePath))
       fs.unlinkSync(pub.imagePath);
-    if (pub.videoPath && fs.exists(pub.videoPath))
+    if (pub.videoPath && fs.existsSync(pub.videoPath))
       fs.unlinkSync(pub.videoPath);
 
     await Publication.findByIdAndDelete(req.params.id);
     res.json({ message: "Publication supprimée" });
   } catch (err) {
-    console.error("Erreur suppression:", err);
+    console.error("Erreur suppression publication:", err);
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
-app.use("/uploads", express.static(path.join(__dirname, "Uploads")));
+// Servir les fichiers statiques
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
+// Démarrer serveur
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🎧 Serveur en ligne sur http://localhost:${PORT}`);
