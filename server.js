@@ -36,19 +36,16 @@ mongoose
   .catch((err) => console.error("❌ MongoDB error:", err));
 
 // Modèles
-
-// Modèle Utilisateur
 const UserSchema = new mongoose.Schema({
   uuid: { type: String, required: true, unique: true },
   email: { type: String, unique: true },
   name: String,
   password: String,
-  followers: [{ type: String }], // Liste des UUID des followers
-  following: [{ type: String }], // Liste des UUID des personnes suivies
+  followers: [{ type: String }],
+  following: [{ type: String }],
 });
 const User = mongoose.model("User", UserSchema);
 
-// Modèle Publication
 const PublicationSchema = new mongoose.Schema({
   userUuid: { type: String, required: true },
   title: { type: String, required: true },
@@ -57,9 +54,17 @@ const PublicationSchema = new mongoose.Schema({
   imagePath: String,
   videoPath: String,
   createdAt: { type: Date, default: Date.now },
-  likes: [{ type: String }], // Liste des UUID des utilisateurs ayant aimé
+  likes: [{ type: String }],
+  playCount: { type: Number, default: 0 }, // Nouveau champ pour le nombre de lectures
 });
 const Publication = mongoose.model("Publication", PublicationSchema);
+
+const PlaybackHistorySchema = new mongoose.Schema({
+  userUuid: { type: String, required: true },
+  pubId: { type: String, required: true },
+  lastPosition: { type: Number, default: 0 }, // Dernière position de lecture (en secondes)
+});
+const PlaybackHistory = mongoose.model("PlaybackHistory", PlaybackHistorySchema);
 
 // Middleware logger
 app.use((req, res, next) => {
@@ -84,8 +89,6 @@ const verifyToken = (req, res, next) => {
 };
 
 // ROUTES AUTHENTIFICATION
-
-// Inscription
 app.post("/auth/register", async (req, res) => {
   try {
     const { email, password, name } = req.body;
@@ -115,7 +118,6 @@ app.post("/auth/register", async (req, res) => {
   }
 });
 
-// Connexion
 app.post("/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -135,7 +137,6 @@ app.post("/auth/login", async (req, res) => {
   }
 });
 
-// Vérification token + infos user
 app.get("/auth/me", verifyToken, async (req, res) => {
   try {
     const user = await User.findOne({ uuid: req.userUuid }).select("-password");
@@ -147,8 +148,6 @@ app.get("/auth/me", verifyToken, async (req, res) => {
 });
 
 // ROUTES UTILISATEURS
-
-// Liste des utilisateurs
 app.get("/users", verifyToken, async (req, res) => {
   try {
     const users = await User.find().select("-password");
@@ -159,18 +158,15 @@ app.get("/users", verifyToken, async (req, res) => {
   }
 });
 
-// Suivre/unfollow un utilisateur
 app.post("/users/:userId/follow", verifyToken, async (req, res) => {
   try {
     const { userId } = req.params;
     const currentUserUuid = req.userUuid;
 
-    // Vérifier si l'utilisateur est déjà suivi
     const currentUser = await User.findOne({ uuid: currentUserUuid });
     const isFollowing = currentUser.following.includes(userId);
 
     if (isFollowing) {
-      // Unfollow
       await User.updateOne(
         { uuid: currentUserUuid },
         { $pull: { following: userId } }
@@ -181,7 +177,6 @@ app.post("/users/:userId/follow", verifyToken, async (req, res) => {
       );
       res.json({ message: "Unfollow réussi", action: "unfollow" });
     } else {
-      // Follow
       await User.updateOne(
         { uuid: currentUserUuid },
         { $addToSet: { following: userId } }
@@ -199,8 +194,6 @@ app.post("/users/:userId/follow", verifyToken, async (req, res) => {
 });
 
 // ROUTES PUBLICATION
-
-// Créer une publication
 app.post(
   "/publications",
   verifyToken,
@@ -227,7 +220,8 @@ app.post(
         audioPath,
         imagePath,
         videoPath,
-        likes: [], // Initialiser les likes comme un tableau vide
+        likes: [],
+        playCount: 0,
       });
 
       res.json({ message: "Publication créée avec succès", publication });
@@ -238,14 +232,12 @@ app.post(
   }
 );
 
-// Récupérer toutes les publications
 app.get("/publications", async (req, res) => {
   try {
     const publications = await Publication.find().sort({ createdAt: -1 });
     const userUuids = publications.map((p) => p.userUuid);
     const users = await User.find({ uuid: { $in: userUuids } });
 
-    // Récupérer l'utilisateur actuel si un token est fourni
     let currentUserUuid = null;
     const authHeader = req.headers.authorization;
     if (authHeader) {
@@ -276,8 +268,9 @@ app.get("/publications", async (req, res) => {
         username: user ? user.name : "Inconnu",
         userUuid: pub.userUuid,
         createdAt: pub.createdAt,
-        likes: pub.likes.length, // Nombre total de likes
-        likedByUser: currentUserUuid ? pub.likes.includes(currentUserUuid) : false, // Vérifie si l'utilisateur actuel a aimé
+        likes: pub.likes.length,
+        playCount: pub.playCount || 0, // Inclure playCount
+        likedByUser: currentUserUuid ? pub.likes.includes(currentUserUuid) : false,
       };
     });
 
@@ -288,7 +281,6 @@ app.get("/publications", async (req, res) => {
   }
 });
 
-// Aimer ou retirer un like d'une publication
 app.post("/publications/:id/like", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -301,14 +293,12 @@ app.post("/publications/:id/like", verifyToken, async (req, res) => {
     const hasLiked = publication.likes.includes(currentUserUuid);
 
     if (hasLiked) {
-      // Retirer le like
       await Publication.updateOne(
         { _id: id },
         { $pull: { likes: currentUserUuid } }
       );
       res.json({ message: "Like retiré", action: "unlike" });
     } else {
-      // Ajouter un like
       await Publication.updateOne(
         { _id: id },
         { $addToSet: { likes: currentUserUuid } }
@@ -321,7 +311,55 @@ app.post("/publications/:id/like", verifyToken, async (req, res) => {
   }
 });
 
-// Supprimer une publication
+app.post("/publications/:id/play", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const publication = await Publication.findById(id);
+    if (!publication)
+      return res.status(404).json({ error: "Publication non trouvée" });
+
+    await Publication.updateOne(
+      { _id: id },
+      { $inc: { playCount: 1 } } // Incrémenter playCount
+    );
+    res.json({ message: "Lecture enregistrée" });
+  } catch (err) {
+    console.error("Erreur enregistrement lecture:", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.post("/playback/:pubId", verifyToken, async (req, res) => {
+  try {
+    const { pubId } = req.params;
+    const { lastPosition } = req.body;
+    const { userUuid } = req;
+
+    await PlaybackHistory.updateOne(
+      { userUuid, pubId },
+      { $set: { lastPosition } },
+      { upsert: true }
+    );
+    res.json({ message: "Historique de lecture mis à jour" });
+  } catch (err) {
+    console.error("Erreur mise à jour historique:", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.get("/playback/:pubId", verifyToken, async (req, res) => {
+  try {
+    const { pubId } = req.params;
+    const { userUuid } = req;
+
+    const history = await PlaybackHistory.findOne({ userUuid, pubId });
+    res.json({ lastPosition: history ? history.lastPosition : 0 });
+  } catch (err) {
+    console.error("Erreur récupération historique:", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
 app.delete("/publications/:id", verifyToken, async (req, res) => {
   try {
     const pub = await Publication.findById(req.params.id);
@@ -330,7 +368,6 @@ app.delete("/publications/:id", verifyToken, async (req, res) => {
     if (pub.userUuid !== req.userUuid)
       return res.status(403).json({ error: "Interdit: pas propriétaire" });
 
-    // Supprimer fichiers
     if (pub.audioPath && fs.existsSync(pub.audioPath))
       fs.unlinkSync(pub.audioPath);
     if (pub.imagePath && fs.existsSync(pub.imagePath))
@@ -346,10 +383,8 @@ app.delete("/publications/:id", verifyToken, async (req, res) => {
   }
 });
 
-// Servir les fichiers statiques
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(path.join(__dirname, "Uploads")));
 
-// Démarrer serveur
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🎧 Serveur en ligne sur http://localhost:${PORT}`);
