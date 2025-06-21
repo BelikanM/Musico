@@ -1,3 +1,12 @@
+/* Masque les barres injectées en dev par Vite (ex: vite-error-overlay, vite banner, etc.) */
+#vite-plugin-checker-error-overlay,
+.vite-error-overlay,
+iframe[src*="vite"],
+body > div:has(> div:has(h1, img[src*="vite"])) {
+  display: none !important;
+  visibility: hidden !important;
+}
+
 body {
   margin: 0;
   background: #000;

@@ -57,6 +57,7 @@ const PublicationSchema = new mongoose.Schema({
   imagePath: String,
   videoPath: String,
   createdAt: { type: Date, default: Date.now },
+  likes: [{ type: String }], // Liste des UUID des utilisateurs ayant aimé
 });
 const Publication = mongoose.model("Publication", PublicationSchema);
 
@@ -226,6 +227,7 @@ app.post(
         audioPath,
         imagePath,
         videoPath,
+        likes: [], // Initialiser les likes comme un tableau vide
       });
 
       res.json({ message: "Publication créée avec succès", publication });
@@ -243,24 +245,78 @@ app.get("/publications", async (req, res) => {
     const userUuids = publications.map((p) => p.userUuid);
     const users = await User.find({ uuid: { $in: userUuids } });
 
+    // Récupérer l'utilisateur actuel si un token est fourni
+    let currentUserUuid = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+      const token = authHeader.split(" ")[1];
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        currentUserUuid = decoded.uuid;
+      } catch (err) {
+        console.error("Token invalide pour récupération des likes:", err);
+      }
+    }
+
     const result = publications.map((pub) => {
       const user = users.find((u) => u.uuid === pub.userUuid);
       return {
         id: pub._id,
         title: pub.title,
         content: pub.content,
-        audioUrl: pub.audioPath ? `${req.protocol}://${req.get("host")}/${pub.audioPath}` : null,
-        imageUrl: pub.imagePath ? `${req.protocol}://${req.get("host")}/${pub.imagePath}` : null,
-        videoUrl: pub.videoPath ? `${req.protocol}://${req.get("host")}/${pub.videoPath}` : null,
+        audioUrl: pub.audioPath
+          ? `${req.protocol}://${req.get("host")}/${pub.audioPath}`
+          : null,
+        imageUrl: pub.imagePath
+          ? `${req.protocol}://${req.get("host")}/${pub.imagePath}`
+          : null,
+        videoUrl: pub.videoPath
+          ? `${req.protocol}://${req.get("host")}/${pub.videoPath}`
+          : null,
         username: user ? user.name : "Inconnu",
         userUuid: pub.userUuid,
         createdAt: pub.createdAt,
+        likes: pub.likes.length, // Nombre total de likes
+        likedByUser: currentUserUuid ? pub.likes.includes(currentUserUuid) : false, // Vérifie si l'utilisateur actuel a aimé
       };
     });
 
     res.json(result);
   } catch (err) {
     console.error("Erreur récupération publications:", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Aimer ou retirer un like d'une publication
+app.post("/publications/:id/like", verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const currentUserUuid = req.userUuid;
+
+    const publication = await Publication.findById(id);
+    if (!publication)
+      return res.status(404).json({ error: "Publication non trouvée" });
+
+    const hasLiked = publication.likes.includes(currentUserUuid);
+
+    if (hasLiked) {
+      // Retirer le like
+      await Publication.updateOne(
+        { _id: id },
+        { $pull: { likes: currentUserUuid } }
+      );
+      res.json({ message: "Like retiré", action: "unlike" });
+    } else {
+      // Ajouter un like
+      await Publication.updateOne(
+        { _id: id },
+        { $addToSet: { likes: currentUserUuid } }
+      );
+      res.json({ message: "Like ajouté", action: "like" });
+    }
+  } catch (err) {
+    console.error("Erreur like/unlike:", err);
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
@@ -275,9 +331,12 @@ app.delete("/publications/:id", verifyToken, async (req, res) => {
       return res.status(403).json({ error: "Interdit: pas propriétaire" });
 
     // Supprimer fichiers
-    if (pub.audioPath && fs.existsSync(pub.audioPath)) fs.unlinkSync(pub.audioPath);
-    if (pub.imagePath && fs.existsSync(pub.imagePath)) fs.unlinkSync(pub.imagePath);
-    if (pub.videoPath && fs.existsSync(pub.videoPath)) fs.unlinkSync(pub.videoPath);
+    if (pub.audioPath && fs.existsSync(pub.audioPath))
+      fs.unlinkSync(pub.audioPath);
+    if (pub.imagePath && fs.existsSync(pub.imagePath))
+      fs.unlinkSync(pub.imagePath);
+    if (pub.videoPath && fs.existsSync(pub.videoPath))
+      fs.unlinkSync(pub.videoPath);
 
     await Publication.findByIdAndDelete(req.params.id);
     res.json({ message: "Publication supprimée" });
@@ -295,4 +354,3 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🎧 Serveur en ligne sur http://localhost:${PORT}`);
 });
-
