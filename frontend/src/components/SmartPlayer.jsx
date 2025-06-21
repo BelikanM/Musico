@@ -7,8 +7,8 @@ const SmartPlayer = ({ publications, currentUser, handleLike, handleEdit, handle
   const [sortedPublications, setSortedPublications] = useState([]);
   const [currentlyPlaying, setCurrentlyPlaying] = useState(null);
   const [manualInteraction, setManualInteraction] = useState(false);
-  const [sortBy, setSortBy] = useState("alphabetical");
-  const [doubleTap, setDoubleTap] = useState({});
+  const [sortBy, setSortBy] = useState("alphabetical"); // Tri par ordre alphabétique ou engagement
+  const [doubleTap, setDoubleTap] = useState({}); // Suivre les double-clics par publication
   const timeoutRef = useRef(null);
 
   // Fonction pour trier les publications
@@ -21,7 +21,7 @@ const SmartPlayer = ({ publications, currentUser, handleLike, handleEdit, handle
         const scores = pubs.map((pub) => 0.6 * pub.likes + 0.4 * (pub.playCount || 0));
         sortedIndices = await tf.tidy(() => {
           const scoreTensor = tf.tensor1d(scores);
-          return scoreTensor.argsort().reverse().arraySync();
+          return scoreTensor.argsort().reverse().arraySync(); // Tri décroissant
         });
       } else {
         const titles = pubs.map((pub) => pub.title);
@@ -39,7 +39,7 @@ const SmartPlayer = ({ publications, currentUser, handleLike, handleEdit, handle
     }
   };
 
-  // Charger l'historique de lecture
+  // Charger l'historique de lecture pour chaque publication
   const loadPlaybackHistory = async (pubId) => {
     try {
       const res = await fetch(`http://localhost:5000/playback/${pubId}`, {
@@ -62,6 +62,7 @@ const SmartPlayer = ({ publications, currentUser, handleLike, handleEdit, handle
       }
     });
 
+    // Incrémenter playCount
     try {
       await fetch(`http://localhost:5000/publications/${pubId}/play`, {
         method: "POST",
@@ -97,6 +98,7 @@ const SmartPlayer = ({ publications, currentUser, handleLike, handleEdit, handle
       ...prev,
       [pubId]: true,
     }));
+    // Réinitialiser après 2 secondes
     setTimeout(() => {
       setDoubleTap((prev) => ({
         ...prev,
@@ -174,16 +176,16 @@ const SmartPlayer = ({ publications, currentUser, handleLike, handleEdit, handle
       }
     };
 
-    const interval = setInterval(updatePlaybackHistory, 5000);
+    const interval = setInterval(updatePlaybackHistory, 5000); // Mettre à jour toutes les 5 secondes
     return () => clearInterval(interval);
   }, [currentlyPlaying, token]);
 
-  // Trier les publications
+  // Trier les publications au chargement
   useEffect(() => {
     sortPublications(publications);
   }, [publications, sortBy]);
 
-  // Charger l'historique initial
+  // Charger l'historique initial pour chaque audio
   useEffect(() => {
     sortedPublications.forEach(async (pub) => {
       if (audioRefs.current[pub.id]) {
