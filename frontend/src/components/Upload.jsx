@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import "./Upload.css";
-import SmartPlayer from "./SmartPlayer";
 
 const Upload = () => {
   const [token, setToken] = useState(localStorage.getItem("token") || "");
@@ -326,14 +325,59 @@ const Upload = () => {
               </form>
 
               <div className="publications-container">
-                <SmartPlayer
-                  publications={publications}
-                  currentUser={currentUser}
-                  handleLike={handleLike}
-                  handleEdit={handleEdit}
-                  handleDelete={handleDelete}
-                  token={token}
-                />
+                <div className="publications-grid">
+                  {publications.map((pub) => (
+                    <div className="music-card" key={pub.id}>
+                      <div
+                        className="music-cover"
+                        style={{ backgroundImage: `url(${pub.imageUrl})` }}
+                      >
+                        <div className="overlay">
+                          <h3 className="music-title">{pub.title}</h3>
+                          <p className="music-author">👤 {pub.username}</p>
+                          <div
+                            className="content-container"
+                            dangerouslySetInnerHTML={{ __html: pub.content }}
+                          />
+                          {pub.audioUrl && (
+                            <audio controls src={pub.audioUrl} className="custom-audio" />
+                          )}
+                          {pub.videoUrl && (
+                            <video controls src={pub.videoUrl} className="video-player" />
+                          )}
+                          <div className="meta-info">
+                            <small>🕒 {new Date(pub.createdAt).toLocaleString()}</small>
+                            <div className="likes-section">
+                              <button
+                                onClick={() => handleLike(pub.id)}
+                                className={`btn small ${pub.likedByUser ? "liked" : ""}`}
+                              >
+                                {pub.likedByUser ? "❤️" : "🤍"} {pub.likes}{" "}
+                                {pub.likes === 1 ? "Like" : "Likes"}
+                              </button>
+                            </div>
+                            {pub.userUuid === currentUser?.uuid && (
+                              <div className="actions">
+                                <button
+                                  onClick={() => handleEdit(pub)}
+                                  className="btn small"
+                                >
+                                  ✏️ Modifier
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(pub.id)}
+                                  className="btn small danger"
+                                >
+                                  🗑️ Supprimer
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </>
           )}

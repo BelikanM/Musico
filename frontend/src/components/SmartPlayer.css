@@ -1,0 +1,304 @@
+/* Réutilisation des variables existantes */
+:root {
+  --primary: #2E7D32;
+  --primary-light: #4CAF50;
+  --secondary: #FFC107;
+  --secondary-dark: #FFA000;
+  --accent: #1976D2;
+  --accent-light: #2196F3;
+  --background: #f0f4f7;
+  --text: #263238;
+  --text-light: #546E7A;
+  --card: #FFFFFF;
+  --card-hover: #f5f5f5;
+  --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-hover: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Styles pour le conteneur de la grille */
+.publications-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  padding: 20px;
+  width: 100%;
+}
+
+/* Styles pour les cartes de musique */
+.music-card {
+  background: var(--card);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  min-height: 400px;
+}
+
+.music-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hover);
+  background: var(--card-hover);
+}
+
+/* Styles pour la couverture */
+.music-cover {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.overlay {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, transparent 100%);
+  padding: 15px;
+  color: white;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.music-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.music-author {
+  margin: 5px 0;
+  font-size: 0.9rem;
+  opacity: 0.8;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Corps de la carte */
+.card-body {
+  padding: 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Conteneur des contrôles du lecteur */
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* Boutons de contrôle */
+.control-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+}
+
+.control-btn:hover:not(:disabled) {
+  background: var(--accent-light);
+  transform: scale(1.1);
+}
+
+.control-btn:disabled {
+  background: var(--text-light);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.play-btn {
+  background: var(--primary);
+}
+
+.play-btn:hover:not(:disabled) {
+  background: var(--primary-light);
+}
+
+.like-btn {
+  background: transparent;
+  color: var(--text-light);
+}
+
+.like-btn.liked {
+  color: red;
+}
+
+.like-btn:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.edit-btn {
+  background: var(--secondary);
+}
+
+.edit-btn:hover:not(:disabled) {
+  background: var(--secondary-dark);
+}
+
+.delete-btn {
+  background: #d32f2f;
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: #b71c1c;
+}
+
+.mute-btn {
+  background: var(--text-light);
+}
+
+.mute-btn:hover:not(:disabled) {
+  background: var(--text);
+}
+
+/* Barre de progression */
+.progress-bar {
+  flex: 1;
+  height: 8px;
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.progress-bar:hover {
+  height: 10px;
+}
+
+.progress {
+  height: 100%;
+  background-color: var(--primary);
+  border-radius: 4px;
+  transition: width 0.1s linear;
+}
+
+/* Statut (temps) */
+.status {
+  font-size: 0.8rem;
+  color: var(--text-light);
+  text-align: center;
+}
+
+/* Contenu HTML */
+.content-container {
+  font-size: 0.9rem;
+  margin: 10px 0;
+  max-height: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  color: var(--text);
+}
+
+/* Meta informations */
+.meta-info {
+  font-size: 0.8rem;
+  color: var(--text-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Actions */
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start;
+}
+
+/* Audio caché */
+.custom-audio {
+  display: none;
+}
+
+/* Vidéo */
+.video-player {
+  width: 100%;
+  margin-top: 10px;
+  border-radius: 4px;
+  aspect-ratio: 16/9;
+}
+
+/* Toggle lecture automatique */
+.autoplay-toggle {
+  padding: 10px;
+  text-align: center;
+}
+
+.autoplay-toggle label {
+  font-size: 0.9rem;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+.autoplay-toggle input {
+  accent-color: var(--primary);
+}
+
+/* Media Queries */
+@media (max-width: 768px) {
+  .publications-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 15px;
+  }
+
+  .music-card {
+    min-height: 350px;
+  }
+
+  .music-cover {
+    height: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .publications-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .music-card {
+    min-height: 320px;
+  }
+
+  .control-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
+
+  .music-title {
+    font-size: 1rem;
+  }
+
+  .music-author {
+    font-size: 0.8rem;
+  }
+}
