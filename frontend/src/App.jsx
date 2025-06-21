@@ -4,6 +4,7 @@ import Navbar from "./components/Navbar";
 import Upload from "./components/Upload";
 import Decouvre from "./components/Decouvre";
 import Abonnement from "./components/Abonnement";
+import InstallButton from "./components/InstallButton";
 import "./index.css";
 
 const App = () => {
@@ -11,6 +12,7 @@ const App = () => {
     <Router>
       <div className="app">
         <Navbar />
+        <InstallButton />
         <div className="main-content">
           <Routes>
             <Route path="/" element={<Upload />} />
