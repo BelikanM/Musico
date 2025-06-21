@@ -41,7 +41,9 @@ const Upload = () => {
 
   const fetchPublications = async () => {
     try {
-      const res = await fetch("http://localhost:5000/publications");
+      const res = await fetch("http://localhost:5000/publications", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const data = await res.json();
       setPublications(data);
     } catch (err) {
@@ -163,6 +165,25 @@ const Upload = () => {
     }
   };
 
+  const handleLike = async (pubId) => {
+    if (!token) return alert("🔒 Connecte-toi pour liker une publication");
+    try {
+      const res = await fetch(`http://localhost:5000/publications/${pubId}/like`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (data.message) {
+        fetchPublications();
+      }
+    } catch (err) {
+      console.error("Erreur like/unlike:", err);
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem("token");
     setToken("");
@@ -218,50 +239,137 @@ const Upload = () => {
           </div>
 
           <div className="tabs">
-            <button className={`tab ${activeTab === "publications" ? "active" : ""}`} onClick={() => setActiveTab("publications")}>Publications</button>
-            <button className={`tab ${activeTab === "users" ? "active" : ""}`} onClick={() => setActiveTab("users")}>Utilisateurs</button>
+            <button
+              className={`tab ${activeTab === "publications" ? "active" : ""}`}
+              onClick={() => setActiveTab("publications")}
+            >
+              Publications
+            </button>
+            <button
+              className={`tab ${activeTab === "users" ? "active" : ""}`}
+              onClick={() => setActiveTab("users")}
+            >
+              Utilisateurs
+            </button>
           </div>
 
           {activeTab === "publications" && (
             <>
               <form onSubmit={handleSubmit} className="form">
-                <input type="text" placeholder="Titre" value={title} onChange={(e) => setTitle(e.target.value)} className="input" required />
-                <textarea placeholder="Contenu HTML" value={content} onChange={(e) => setContent(e.target.value)} className="textarea" rows={6} required />
+                <input
+                  type="text"
+                  placeholder="Titre"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="input"
+                  required
+                />
+                <textarea
+                  placeholder="Contenu HTML"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  className="textarea"
+                  rows={6}
+                  required
+                />
                 <div className="file-inputs">
                   <label>
                     Audio (obligatoire)
-                    <input type="file" accept="audio/*" onChange={(e) => setAudio(e.target.files[0])} className="input-file" required={!editingId} />
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={(e) => setAudio(e.target.files[0])}
+                      className="input-file"
+                      required={!editingId}
+                    />
                   </label>
                   <label>
                     Image (obligatoire)
-                    <input type="file" accept="image/*" onChange={(e) => setImage(e.target.files[0])} className="input-file" required={!editingId} />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setImage(e.target.files[0])}
+                      className="input-file"
+                      required={!editingId}
+                    />
                   </label>
                   <label>
                     Vidéo (optionnelle)
-                    <input type="file" accept="video/*" onChange={(e) => setVideo(e.target.files[0])} className="input-file" />
+                    <input
+                      type="file"
+                      accept="video/*"
+                      onChange={(e) => setVideo(e.target.files[0])}
+                      className="input-file"
+                    />
                   </label>
                 </div>
-                <button type="submit" className="btn">{editingId ? "💾 Enregistrer" : "✅ Publier"}</button>
-                {editingId && <button type="button" className="btn cancel" onClick={() => { setEditingId(null); setTitle(""); setContent(""); setAudio(null); setImage(null); setVideo(null); }}>Annuler</button>}
+                <button type="submit" className="btn">
+                  {editingId ? "💾 Enregistrer" : "✅ Publier"}
+                </button>
+                {editingId && (
+                  <button
+                    type="button"
+                    className="btn cancel"
+                    onClick={() => {
+                      setEditingId(null);
+                      setTitle("");
+                      setContent("");
+                      setAudio(null);
+                      setImage(null);
+                      setVideo(null);
+                    }}
+                  >
+                    Annuler
+                  </button>
+                )}
               </form>
 
               <div className="publications-container">
                 <div className="publications-grid">
                   {publications.map((pub) => (
                     <div className="music-card" key={pub.id}>
-                      <div className="music-cover" style={{ backgroundImage: `url(${pub.imageUrl})` }}>
+                      <div
+                        className="music-cover"
+                        style={{ backgroundImage: `url(${pub.imageUrl})` }}
+                      >
                         <div className="overlay">
                           <h3 className="music-title">{pub.title}</h3>
                           <p className="music-author">👤 {pub.username}</p>
-                          <div className="content-container" dangerouslySetInnerHTML={{ __html: pub.content }} />
-                          {pub.audioUrl && <audio controls src={pub.audioUrl} className="custom-audio" />}
-                          {pub.videoUrl && <video controls src={pub.videoUrl} className="video-player" />}
+                          <div
+                            className="content-container"
+                            dangerouslySetInnerHTML={{ __html: pub.content }}
+                          />
+                          {pub.audioUrl && (
+                            <audio controls src={pub.audioUrl} className="custom-audio" />
+                          )}
+                          {pub.videoUrl && (
+                            <video controls src={pub.videoUrl} className="video-player" />
+                          )}
                           <div className="meta-info">
                             <small>🕒 {new Date(pub.createdAt).toLocaleString()}</small>
+                            <div className="likes-section">
+                              <button
+                                onClick={() => handleLike(pub.id)}
+                                className={`btn small ${pub.likedByUser ? "liked" : ""}`}
+                              >
+                                {pub.likedByUser ? "❤️" : "🤍"} {pub.likes}{" "}
+                                {pub.likes === 1 ? "Like" : "Likes"}
+                              </button>
+                            </div>
                             {pub.userUuid === currentUser?.uuid && (
                               <div className="actions">
-                                <button onClick={() => handleEdit(pub)} className="btn small">✏️ Modifier</button>
-                                <button onClick={() => handleDelete(pub.id)} className="btn small danger">🗑️ Supprimer</button>
+                                <button
+                                  onClick={() => handleEdit(pub)}
+                                  className="btn small"
+                                >
+                                  ✏️ Modifier
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(pub.id)}
+                                  className="btn small danger"
+                                >
+                                  🗑️ Supprimer
+                                </button>
                               </div>
                             )}
                           </div>
@@ -283,10 +391,20 @@ const Upload = () => {
                     <div className="user-info">
                       <h4>{user.name}</h4>
                       <p>{user.email}</p>
-                      <small>{user.followers?.length || 0} followers | {user.following?.length || 0} suivis</small>
+                      <small>
+                        {user.followers?.length || 0} followers |{" "}
+                        {user.following?.length || 0} suivis
+                      </small>
                     </div>
-                    <button onClick={() => handleFollow(user.uuid)} className={`btn small ${currentUser?.following?.includes(user.uuid) ? "following" : ""}`}>
-                      {currentUser?.following?.includes(user.uuid) ? "✓ Suivi" : "+ Suivre"}
+                    <button
+                      onClick={() => handleFollow(user.uuid)}
+                      className={`btn small ${
+                        currentUser?.following?.includes(user.uuid) ? "following" : ""
+                      }`}
+                    >
+                      {currentUser?.following?.includes(user.uuid)
+                        ? "✓ Suivi"
+                        : "+ Suivre"}
                     </button>
                   </div>
                 ))}
@@ -300,4 +418,3 @@ const Upload = () => {
 };
 
 export default Upload;
-

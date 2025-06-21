@@ -1,3 +1,26 @@
+.liked {
+  color: red;
+}
+
+.like-section {
+  margin-top: 10px;
+}
+
+.user-info span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.user-card h4 {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+
+
+
 /* Styles pour les cartes de musique */
 .music-card {
   position: relative;
