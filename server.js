@@ -55,14 +55,20 @@ const PublicationSchema = new mongoose.Schema({
   videoPath: String,
   createdAt: { type: Date, default: Date.now },
   likes: [{ type: String }],
-  playCount: { type: Number, default: 0 }, // Nouveau champ pour le nombre de lectures
+  playCount: { type: Number, default: 0 },
+  authorPlayCount: { type: Number, default: 0 },
+  playHistory: [{
+    userUuid: String,
+    timestamp: Date,
+    weight: Number,
+  }],
 });
 const Publication = mongoose.model("Publication", PublicationSchema);
 
 const PlaybackHistorySchema = new mongoose.Schema({
   userUuid: { type: String, required: true },
   pubId: { type: String, required: true },
-  lastPosition: { type: Number, default: 0 }, // Dernière position de lecture (en secondes)
+  lastPosition: { type: Number, default: 0 },
 });
 const PlaybackHistory = mongoose.model("PlaybackHistory", PlaybackHistorySchema);
 
@@ -110,7 +116,7 @@ app.post("/auth/register", async (req, res) => {
       followers: [],
       following: [],
     });
-    const token = jwt.sign({ uuid }, process.env.JWT_SECRET);
+    const token = jwt.sign({ uuid: newUser.uuid }, process.env.JWT_SECRET);
     res.json({ token, user: newUser });
   } catch (err) {
     console.error("Erreur inscription:", err);
@@ -154,7 +160,7 @@ app.get("/users", verifyToken, async (req, res) => {
     res.json(users);
   } catch (err) {
     console.error("Erreur récupération utilisateurs:", err);
-    res.status(500).json({ error: "Erreur serveur" });
+    res.status(500).json({ error: "users" });
   }
 });
 
@@ -175,7 +181,7 @@ app.post("/users/:userId/follow", verifyToken, async (req, res) => {
         { uuid: userId },
         { $pull: { followers: currentUserUuid } }
       );
-      res.json({ message: "Unfollow réussi", action: "unfollow" });
+      res.json({ message: "Unfollow réussi", action: "follows" });
     } else {
       await User.updateOne(
         { uuid: currentUserUuid },
@@ -185,7 +191,7 @@ app.post("/users/:userId/follow", verifyToken, async (req, res) => {
         { uuid: userId },
         { $addToSet: { followers: currentUserUuid } }
       );
-      res.json({ message: "Follow réussi", action: "follow" });
+      res.json({ message: "Follow réussi", action: "follows" });
     }
   } catch (err) {
     console.error("Erreur follow/unfollow:", err);
@@ -207,11 +213,11 @@ app.post(
       const { title, content } = req.body;
       if (!title) return res.status(400).json({ error: "Titre requis" });
       if (!req.files["audio"] || !req.files["image"])
-        return res.status(400).json({ error: "Audio et image obligatoires" });
+        return res.status(400).json({ error: "erreur" });
 
       const audioPath = req.files["audio"][0].path;
       const imagePath = req.files["image"][0].path;
-      const videoPath = req.files["video"]?.[0]?.path || "";
+      const videoPath = req.files?.["video"]?.[0]?.path || "";
 
       const publication = await Publication.create({
         userUuid: req.userUuid,
@@ -222,9 +228,11 @@ app.post(
         videoPath,
         likes: [],
         playCount: 0,
+        authorPlayCount: 0,
+        playHistory: [],
       });
 
-      res.json({ message: "Publication créée avec succès", publication });
+      res.json({ publication });
     } catch (err) {
       console.error("Erreur création publication:", err);
       res.status(500).json({ error: "Erreur serveur" });
@@ -269,7 +277,8 @@ app.get("/publications", async (req, res) => {
         userUuid: pub.userUuid,
         createdAt: pub.createdAt,
         likes: pub.likes.length,
-        playCount: pub.playCount || 0, // Inclure playCount
+        playCount: pub.playCount || 0,
+        authorPlayCount: pub.authorPlayCount || 0,
         likedByUser: currentUserUuid ? pub.likes.includes(currentUserUuid) : false,
       };
     });
@@ -314,14 +323,37 @@ app.post("/publications/:id/like", verifyToken, async (req, res) => {
 app.post("/publications/:id/play", verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
+    const { userUuid } = req;
+    const { isManual, weight = 1 } = req.body;
+
     const publication = await Publication.findById(id);
     if (!publication)
       return res.status(404).json({ error: "Publication non trouvée" });
 
+    // Vérifier doublon
+    const recentPlay = publication.playHistory.find(
+      (play) => play.userUuid === userUuid && (Date.now() - new Date(play.timestamp)) / (1000 * 60 * 60) < 24
+    );
+    if (recentPlay)
+      return res.json({ message: "Lecture ignorée (doublon)" });
+
+    // Ajouter à l'historique
+    const playEntry = {
+      userUuid,
+      timestamp: new Date(),
+      weight,
+    };
+
+    // Incrémenter le compteur
+    const updateField = publication.userUuid === userUuid ? "authorPlayCount" : "playCount";
     await Publication.updateOne(
       { _id: id },
-      { $inc: { playCount: 1 } } // Incrémenter playCount
+      {
+        $inc: { [updateField]: weight },
+        $push: { playHistory: playEntry },
+      }
     );
+
     res.json({ message: "Lecture enregistrée" });
   } catch (err) {
     console.error("Erreur enregistrement lecture:", err);
@@ -372,13 +404,13 @@ app.delete("/publications/:id", verifyToken, async (req, res) => {
       fs.unlinkSync(pub.audioPath);
     if (pub.imagePath && fs.existsSync(pub.imagePath))
       fs.unlinkSync(pub.imagePath);
-    if (pub.videoPath && fs.existsSync(pub.videoPath))
+    if (pub.videoPath && fs.exists(pub.videoPath))
       fs.unlinkSync(pub.videoPath);
 
     await Publication.findByIdAndDelete(req.params.id);
     res.json({ message: "Publication supprimée" });
   } catch (err) {
-    console.error("Erreur suppression publication:", err);
+    console.error("Erreur suppression:", err);
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
