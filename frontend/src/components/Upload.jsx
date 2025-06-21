@@ -245,48 +245,52 @@ const Upload = () => {
                 {editingId && <button type="button" className="btn cancel" onClick={() => { setEditingId(null); setTitle(""); setContent(""); setAudio(null); setImage(null); setVideo(null); }}>Annuler</button>}
               </form>
 
-              <div className="publications">
-                {publications.map((pub) => (
-                  <div className="music-card" key={pub.id}>
-                    <div className="music-cover" style={{ backgroundImage: `url(${pub.imageUrl})` }}>
-                      <div className="overlay">
-                        <h3 className="music-title">{pub.title}</h3>
-                        <p className="music-author">👤 {pub.username}</p>
-                        <div dangerouslySetInnerHTML={{ __html: pub.content }} />
-                        {pub.audioUrl && <audio controls src={pub.audioUrl} className="custom-audio" />}
-                        {pub.videoUrl && <video controls src={pub.videoUrl} className="video-player" />}
-                        <div className="meta-info">
-                          <small>🕒 {new Date(pub.createdAt).toLocaleString()}</small>
-                          {pub.userUuid === currentUser?.uuid && (
-                            <div className="actions">
-                              <button onClick={() => handleEdit(pub)} className="btn small">✏️ Modifier</button>
-                              <button onClick={() => handleDelete(pub.id)} className="btn small danger">🗑️ Supprimer</button>
-                            </div>
-                          )}
+              <div className="publications-container">
+                <div className="publications-grid">
+                  {publications.map((pub) => (
+                    <div className="music-card" key={pub.id}>
+                      <div className="music-cover" style={{ backgroundImage: `url(${pub.imageUrl})` }}>
+                        <div className="overlay">
+                          <h3 className="music-title">{pub.title}</h3>
+                          <p className="music-author">👤 {pub.username}</p>
+                          <div className="content-container" dangerouslySetInnerHTML={{ __html: pub.content }} />
+                          {pub.audioUrl && <audio controls src={pub.audioUrl} className="custom-audio" />}
+                          {pub.videoUrl && <video controls src={pub.videoUrl} className="video-player" />}
+                          <div className="meta-info">
+                            <small>🕒 {new Date(pub.createdAt).toLocaleString()}</small>
+                            {pub.userUuid === currentUser?.uuid && (
+                              <div className="actions">
+                                <button onClick={() => handleEdit(pub)} className="btn small">✏️ Modifier</button>
+                                <button onClick={() => handleDelete(pub.id)} className="btn small danger">🗑️ Supprimer</button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </>
           )}
 
           {activeTab === "users" && (
-            <div className="users-list">
-              <h3>Utilisateurs inscrits</h3>
-              {users.map((user) => (
-                <div key={user.uuid} className="user-card">
-                  <div className="user-info">
-                    <h4>{user.name}</h4>
-                    <p>{user.email}</p>
-                    <small>{user.followers?.length || 0} followers | {user.following?.length || 0} suivis</small>
+            <div className="users-container">
+              <div className="users-list">
+                <h3>Utilisateurs inscrits</h3>
+                {users.map((user) => (
+                  <div key={user.uuid} className="user-card">
+                    <div className="user-info">
+                      <h4>{user.name}</h4>
+                      <p>{user.email}</p>
+                      <small>{user.followers?.length || 0} followers | {user.following?.length || 0} suivis</small>
+                    </div>
+                    <button onClick={() => handleFollow(user.uuid)} className={`btn small ${currentUser?.following?.includes(user.uuid) ? "following" : ""}`}>
+                      {currentUser?.following?.includes(user.uuid) ? "✓ Suivi" : "+ Suivre"}
+                    </button>
                   </div>
-                  <button onClick={() => handleFollow(user.uuid)} className={`btn small ${currentUser?.following?.includes(user.uuid) ? "following" : ""}`}>
-                    {currentUser?.following?.includes(user.uuid) ? "✓ Suivi" : "+ Suivre"}
-                  </button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           )}
         </>
@@ -296,3 +300,4 @@ const Upload = () => {
 };
 
 export default Upload;
+
