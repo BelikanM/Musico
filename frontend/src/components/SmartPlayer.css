@@ -1,3 +1,134 @@
+.smart-player {
+  position: relative;
+  padding-bottom: 80px; /* Espace pour le lecteur global */
+}
+
+.publications-grid {
+  display: grid;
+  gap: 20px;
+  padding: 20px;
+}
+
+.music-card {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.music-cover {
+  position: relative;
+  height: 300px;
+  background-size: cover;
+  background-position: center;
+}
+
+.overlay {
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  padding: 20px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.custom-audio,
+.video-player {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.meta-info {
+  margin-top: 10px;
+  font-size: 0.9em;
+}
+
+.likes-section,
+.actions {
+  margin-top: 10px;
+}
+
+.btn {
+  padding: 5px 10px;
+  margin-right: 5px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn.small {
+  font-size: 0.8em;
+}
+
+.btn.liked {
+  background-color: #ff4d4d;
+  color: white;
+}
+
+.btn.danger {
+  background-color: #ff4d4d;
+  color: white;
+}
+
+/* Style du lecteur global */
+.global-player {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #1a1a1a;
+  color: white;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+}
+
+.player-info {
+  flex: 1;
+  padding: 0 10px;
+}
+
+.player-title {
+  display: block;
+  font-weight: bold;
+  font-size: 1em;
+}
+
+.player-author {
+  font-size: 0.8em;
+  color: #bbb;
+}
+
+.player-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.player-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5em;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.player-btn:disabled {
+  color: #555;
+  cursor: not-allowed;
+}
+
+
+
+
+
+
+
+
+
 /* Réutilisation des variables existantes */
 :root {
   --primary: #2E7D32;

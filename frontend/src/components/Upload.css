@@ -1,3 +1,20 @@
+.file-label {
+  display: inline-block;
+  padding: 8px 12px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.2em;
+}
+
+.input-file {
+  display: none; /* Hide the default file input */
+}
+
+
+
+
+
 .liked {
   color: red;
 }

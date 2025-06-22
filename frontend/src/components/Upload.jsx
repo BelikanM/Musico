@@ -274,7 +274,6 @@ const Upload = () => {
                 />
                 <div className="file-inputs">
                   <label>
-                    Audio (obligatoire)
                     <input
                       type="file"
                       accept="audio/*"
@@ -282,9 +281,9 @@ const Upload = () => {
                       className="input-file"
                       required={!editingId}
                     />
+                    <span className="file-label">🎵</span>
                   </label>
                   <label>
-                    Image (obligatoire)
                     <input
                       type="file"
                       accept="image/*"
@@ -292,19 +291,20 @@ const Upload = () => {
                       className="input-file"
                       required={!editingId}
                     />
+                    <span className="file-label">🖼️</span>
                   </label>
                   <label>
-                    Vidéo (optionnelle)
                     <input
                       type="file"
                       accept="video/*"
                       onChange={(e) => setVideo(e.target.files[0])}
                       className="input-file"
                     />
+                    <span className="file-label">🎥</span>
                   </label>
                 </div>
-                <button type="submit" className="btn">
-                  {editingId ? "💾 Enregistrer" : "✅ Publier"}
+                <button type="submit" className="btn" title={editingId ? "Enregistrer" : "Publier"}>
+                  {editingId ? "💾" : "✅"}
                 </button>
                 {editingId && (
                   <button
@@ -318,8 +318,9 @@ const Upload = () => {
                       setImage(null);
                       setVideo(null);
                     }}
+                    title="Annuler"
                   >
-                    Annuler
+                    ❌
                   </button>
                 )}
               </form>
@@ -361,14 +362,16 @@ const Upload = () => {
                                 <button
                                   onClick={() => handleEdit(pub)}
                                   className="btn small"
+                                  title="Modifier"
                                 >
-                                  ✏️ Modifier
+                                  ✏️
                                 </button>
                                 <button
                                   onClick={() => handleDelete(pub.id)}
                                   className="btn small danger"
+                                  title="Supprimer"
                                 >
-                                  🗑️ Supprimer
+                                  🗑️
                                 </button>
                               </div>
                             )}

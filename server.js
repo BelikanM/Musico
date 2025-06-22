@@ -85,6 +85,65 @@ const verifyToken = (req, res, next) => {
 
 // ROUTES AUTHENTIFICATION
 
+
+
+// Récupérer les publications des utilisateurs suivis
+app.get("/publications/following", verifyToken, async (req, res) => {
+  try {
+    const user = await User.findOne({ uuid: req.userUuid }).select("following");
+    if (!user) return res.status(404).json({ error: "Utilisateur non trouvé" });
+
+    const followingUuids = user.followingUuids || [];
+    if (followingUuids.length === 0) {
+      return res.json([]); // Aucun utilisateur suivi, retourner une liste vide
+    }
+
+    const publications = await Publication.find({
+      userUuid: { $in: followingUuids },
+    }).sort({ createdAt: -1 });
+
+    const userUuids = publications.map((p) => p.userUuid);
+    const users = await User.find({ uuid: { $in: userUuids } }).select("name");
+
+    const result = publications.map((pub) => {
+      const user = users.find((u) => u.uuid === pub.userUuid);
+      return {
+        id: pub._id,
+        title: pub.title,
+        content: pub.content,
+        audioUrl: pub.audioPath
+          ? `${req.protocol}://${req.get("host")}/${pub.audioPath}`
+          : null,
+        imageUrl: pub.imagePath
+          ? `${req.protocol}://${req.get("host")}/${pub.imagePath}`
+          : null,
+        videoUrl: pub.videoPath
+          ? `${req.protocol}://${req.get("host")}/${pub.videoPath}`
+          : null,
+        username: user ? user.name : "Inconnu",
+        userUuid: pub.userUuid,
+        createdAt: pub.createdAt,
+        likes: pub.likes.length,
+        likedByUser: pub.likes.includes(req.userUuid),
+      };
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error("Erreur récupération publications suivies:", err);
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+
+
+
+
+
+
+
+
+
 // Inscription
 app.post("/auth/register", async (req, res) => {
   try {
