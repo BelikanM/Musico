@@ -10,19 +10,23 @@ const Upload = () => {
   const [video, setVideo] = useState(null);
   const [editingId, setEditingId] = useState(null);
 
-  const [publications, setPublications] = useState([]);
+  const [myPublications, setMyPublications] = useState([]);
+  const [feedPublications, setFeedPublications] = useState([]);
+  const [userPublications, setUserPublications] = useState([]);
   const [users, setUsers] = useState([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
-  const [activeTab, setActiveTab] = useState("publications");
+  const [activeTab, setActiveTab] = useState("profile");
+  const [selectedUserId, setSelectedUserId] = useState(null);
 
   useEffect(() => {
-    fetchPublications();
     if (token) {
       fetchCurrentUser();
+      fetchMyPublications();
+      fetchFeedPublications();
       fetchUsers();
     }
   }, [token]);
@@ -32,22 +36,61 @@ const Upload = () => {
       const res = await fetch("http://localhost:5000/auth/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) throw new Error("Erreur récupération utilisateur");
       const data = await res.json();
       setCurrentUser(data);
     } catch (err) {
       console.error("Erreur récupération utilisateur:", err);
+      setToken("");
+      localStorage.removeItem("token");
     }
   };
 
-  const fetchPublications = async () => {
+  const fetchMyPublications = async () => {
     try {
       const res = await fetch("http://localhost:5000/publications", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Erreur chargement publications");
+      const data = await res.json();
+      const userPublications = data.filter(
+        (pub) => pub.userUuid === currentUser?.uuid
+      );
+      setMyPublications(userPublications);
+    } catch (err) {
+      console.error("Erreur chargement publications:", err);
+    }
+  };
+
+  const fetchFeedPublications = async () => {
+    try {
+      const res = await fetch("http://localhost:5000/publications", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Erreur chargement publications");
+      const data = await res.json();
+      const feed = data.filter(
+        (pub) => currentUser?.following?.includes(pub.userUuid)
+      );
+      setFeedPublications(feed);
+    } catch (err) {
+      console.error("Erreur chargement publications du mur:", err);
+    }
+  };
+
+  const fetchUserPublications = async (userId) => {
+    try {
+      const res = await fetch(`http://localhost:5000/users/${userId}/publications`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
+      if (!res.ok) throw new Error("Erreur chargement publications utilisateur");
       const data = await res.json();
-      setPublications(data);
+      setUserPublications(data);
+      setActiveTab("userProfile");
+      setSelectedUserId(userId);
     } catch (err) {
-      console.error("Erreur loading publications:", err);
+      console.error("Erreur chargement publications utilisateur:", err);
+      alert("Erreur lors du chargement du profil");
     }
   };
 
@@ -56,10 +99,11 @@ const Upload = () => {
       const res = await fetch("http://localhost:5000/users", {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) throw new Error("Erreur chargement utilisateurs");
       const data = await res.json();
       setUsers(data);
     } catch (err) {
-      console.error("Erreur loading users:", err);
+      console.error("Erreur chargement utilisateurs:", err);
     }
   };
 
@@ -83,6 +127,7 @@ const Upload = () => {
       }
     } catch (err) {
       console.error("Erreur auth :", err);
+      alert("Erreur lors de l'authentification");
     }
   };
 
@@ -109,6 +154,7 @@ const Upload = () => {
         body: formData,
       });
 
+      if (!res.ok) throw new Error("Erreur lors de l'opération");
       const data = await res.json();
       alert(data.message || "✅ Opération réussie");
 
@@ -118,28 +164,38 @@ const Upload = () => {
       setImage(null);
       setVideo(null);
       setEditingId(null);
-      fetchPublications();
+      fetchMyPublications();
     } catch (err) {
       console.error("Erreur upload:", err);
+      alert("Erreur lors de la publication");
     }
   };
 
   const handleDelete = async (id) => {
     if (!window.confirm("Supprimer cette publication ?")) return;
     try {
+      const pub = myPublications.find((p) => p.id === id);
+      if (!pub || pub.userUuid !== currentUser?.uuid) {
+        return alert("⛔ Tu ne peux pas supprimer cette publication");
+      }
       const res = await fetch(`http://localhost:5000/publications/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) throw new Error("Erreur suppression");
       const data = await res.json();
       alert(data.message);
-      fetchPublications();
+      fetchMyPublications();
     } catch (err) {
       console.error("Erreur suppression:", err);
+      alert("Erreur lors de la suppression");
     }
   };
 
   const handleEdit = (pub) => {
+    if (pub.userUuid !== currentUser?.uuid) {
+      return alert("⛔ Tu ne peux pas modifier cette publication");
+    }
     setTitle(pub.title);
     setContent(pub.content);
     setEditingId(pub.id);
@@ -155,13 +211,16 @@ const Upload = () => {
           Authorization: `Bearer ${token}`,
         },
       });
+      if (!res.ok) throw new Error("Erreur follow/unfollow");
       const data = await res.json();
       if (data.message) {
         fetchUsers();
         fetchCurrentUser();
+        fetchFeedPublications();
       }
     } catch (err) {
       console.error("Erreur follow/unfollow:", err);
+      alert("Erreur lors de l'action");
     }
   };
 
@@ -175,19 +234,31 @@ const Upload = () => {
           Authorization: `Bearer ${token}`,
         },
       });
+      if (!res.ok) throw new Error("Erreur like/unlike");
       const data = await res.json();
       if (data.message) {
-        fetchPublications();
+        fetchMyPublications();
+        fetchFeedPublications();
+        if (selectedUserId) fetchUserPublications(selectedUserId);
       }
     } catch (err) {
       console.error("Erreur like/unlike:", err);
+      alert("Erreur lors de l'action like");
     }
+  };
+
+  const handleViewUserProfile = async (userId) => {
+    await fetchUserPublications(userId);
   };
 
   const logout = () => {
     localStorage.removeItem("token");
     setToken("");
     setCurrentUser(null);
+    setMyPublications([]);
+    setFeedPublications([]);
+    setUserPublications([]);
+    setSelectedUserId(null);
   };
 
   return (
@@ -221,17 +292,27 @@ const Upload = () => {
           <button onClick={handleAuth} className="btn">
             {isLoginMode ? "Se connecter" : "S'inscrire"}
           </button>
-          <p className="toggle">
-            {isLoginMode ? "Pas de compte ?" : "Déjà inscrit ?"}{" "}
-            <span onClick={() => setIsLoginMode(!isLoginMode)}>
-              {isLoginMode ? "Créer un compte" : "Connexion"}
-            </span>
-          </p>
+          <button
+            onClick={() => setIsLoginMode(!isLoginMode)}
+            className="btn toggle-btn"
+          >
+            {isLoginMode ? "Créer un compte" : "Se connecter"}
+          </button>
         </div>
       ) : (
         <>
           <div className="header">
-            <h2>🎙️ {editingId ? "Modifier publication" : "Nouvelle publication"}</h2>
+            <h2>
+              {activeTab === "profile"
+                ? "🎙️ Mon Profil"
+                : activeTab === "feed"
+                ? "📜 Mur"
+                : activeTab === "users"
+                ? "👥 Utilisateurs"
+                : `👤 Profil de ${
+                    users.find((u) => u.uuid === selectedUserId)?.name || "Utilisateur"
+                  }`}
+            </h2>
             <div className="user-info">
               <span>👤 {currentUser?.name}</span>
               <button onClick={logout} className="btn small">🔓 Déconnexion</button>
@@ -240,20 +321,36 @@ const Upload = () => {
 
           <div className="tabs">
             <button
-              className={`tab ${activeTab === "publications" ? "active" : ""}`}
-              onClick={() => setActiveTab("publications")}
+              className={`tab ${activeTab === "profile" ? "active" : ""}`}
+              onClick={() => {
+                setActiveTab("profile");
+                setSelectedUserId(null);
+              }}
             >
-              Publications
+              Mon Profil
+            </button>
+            <button
+              className={`tab ${activeTab === "feed" ? "active" : ""}`}
+              onClick={() => {
+                setActiveTab("feed");
+                setSelectedUserId(null);
+                fetchFeedPublications();
+              }}
+            >
+              Mur
             </button>
             <button
               className={`tab ${activeTab === "users" ? "active" : ""}`}
-              onClick={() => setActiveTab("users")}
+              onClick={() => {
+                setActiveTab("users");
+                setSelectedUserId(null);
+              }}
             >
               Utilisateurs
             </button>
           </div>
 
-          {activeTab === "publications" && (
+          {activeTab === "profile" && (
             <>
               <form onSubmit={handleSubmit} className="form">
                 <input
@@ -327,7 +424,71 @@ const Upload = () => {
 
               <div className="publications-container">
                 <div className="publications-grid">
-                  {publications.map((pub) => (
+                  {myPublications.length > 0 ? (
+                    myPublications.map((pub) => (
+                      <div className="music-card" key={pub.id}>
+                        <div
+                          className="music-cover"
+                          style={{ backgroundImage: `url(${pub.imageUrl})` }}
+                        >
+                          <div className="overlay">
+                            <h3 className="music-title">{pub.title}</h3>
+                            <p className="music-author">👤 {pub.username}</p>
+                            <div
+                              className="content-container"
+                              dangerouslySetInnerHTML={{ __html: pub.content }}
+                            />
+                            {pub.audioUrl && (
+                              <audio controls src={pub.audioUrl} className="custom-audio" />
+                            )}
+                            {pub.videoUrl && (
+                              <video controls src={pub.videoUrl} className="video-player" />
+                            )}
+                            <div className="meta-info">
+                              <small>🕒 {new Date(pub.createdAt).toLocaleString()}</small>
+                              <div className="likes-section">
+                                <button
+                                  onClick={() => handleLike(pub.id)}
+                                  className={`btn small ${pub.likedByUser ? "liked" : ""}`}
+                                >
+                                  {pub.likedByUser ? "❤️" : "🤍"} {pub.likes}{" "}
+                                  {pub.likes === 1 ? "Like" : "Likes"}
+                                </button>
+                              </div>
+                              <div className="actions">
+                                <button
+                                  onClick={() => handleEdit(pub)}
+                                  className="btn small"
+                                  title="Modifier"
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(pub.id)}
+                                  className="btn small danger"
+                                  title="Supprimer"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p>Aucune publication pour le moment.</p>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {activeTab === "feed" && (
+            <div className="publications-container">
+              <div className="publications-grid">
+                {feedPublications.length > 0 ? (
+                  feedPublications.map((pub) => (
                     <div className="music-card" key={pub.id}>
                       <div
                         className="music-cover"
@@ -379,10 +540,76 @@ const Upload = () => {
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  ))
+                ) : (
+                  <p>Aucune publication dans ton fil d'actualité. Suis d'autres utilisateurs !</p>
+                )}
               </div>
-            </>
+            </div>
+          )}
+
+          {activeTab === "userProfile" && (
+            <div className="publications-container">
+              <div className="publications-grid">
+                {userPublications.length > 0 ? (
+                  userPublications.map((pub) => (
+                    <div className="music-card" key={pub.id}>
+                      <div
+                        className="music-cover"
+                        style={{ backgroundImage: `url(${pub.imageUrl})` }}
+                      >
+                        <div className="overlay">
+                          <h3 className="music-title">{pub.title}</h3>
+                          <p className="music-author">👤 {pub.username}</p>
+                          <div
+                            className="content-container"
+                            dangerouslySetInnerHTML={{ __html: pub.content }}
+                          />
+                          {pub.audioUrl && (
+                            <audio controls src={pub.audioUrl} className="custom-audio" />
+                          )}
+                          {pub.videoUrl && (
+                            <video controls src={pub.videoUrl} className="video-player" />
+                          )}
+                          <div className="meta-info">
+                            <small>🕒 {new Date(pub.createdAt).toLocaleString()}</small>
+                            <div className="likes-section">
+                              <button
+                                onClick={() => handleLike(pub.id)}
+                                className={`btn small ${pub.likedByUser ? "liked" : ""}`}
+                              >
+                                {pub.likedByUser ? "❤️" : "🤍"} {pub.likes}{" "}
+                                {pub.likes === 1 ? "Like" : "Likes"}
+                              </button>
+                            </div>
+                            {pub.userUuid === currentUser?.uuid && (
+                              <div className="actions">
+                                <button
+                                  onClick={() => handleEdit(pub)}
+                                  className="btn small"
+                                  title="Modifier"
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(pub.id)}
+                                  className="btn small danger"
+                                  title="Supprimer"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p>Cet utilisateur n'a pas de publications.</p>
+                )}
+              </div>
+            </div>
           )}
 
           {activeTab === "users" && (
@@ -399,16 +626,25 @@ const Upload = () => {
                         {user.following?.length || 0} suivis
                       </small>
                     </div>
-                    <button
-                      onClick={() => handleFollow(user.uuid)}
-                      className={`btn small ${
-                        currentUser?.following?.includes(user.uuid) ? "following" : ""
-                      }`}
-                    >
-                      {currentUser?.following?.includes(user.uuid)
-                        ? "✓ Suivi"
-                        : "+ Suivre"}
-                    </button>
+                    <div className="user-actions">
+                      <button
+                        onClick={() => handleFollow(user.uuid)}
+                        className={`btn small ${
+                          currentUser?.following?.includes(user.uuid) ? "following" : ""
+                        }`}
+                      >
+                        {currentUser?.following?.includes(user.uuid)
+                          ? "✓ Suivi"
+                          : "+ Suivre"}
+                      </button>
+                      <button
+                        onClick={() => handleViewUserProfile(user.uuid)}
+                        className="btn small"
+                        title="Voir le profil"
+                      >
+                        👤
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
